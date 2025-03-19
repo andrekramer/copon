@@ -1,0 +1,70 @@
+Cop-on Programming Manual
+Introduction
+Welcome to Cop-on, a context-oriented programming language designed to combine the best features of functional, procedural, and object-oriented programming paradigms. Cop-on emphasizes the explicit use of context to manage dependencies, state, and side effects, making it particularly suitable for AI workflows and concurrent programming.
+
+Core Concepts
+Context
+In Cop-on, every function takes a context as its first argument. The context is a typed collection containing all dependencies and mutable state required by the function. This explicit context allows for synchronization and checkpointing of concurrent executions.
+
+Function Signatures
+Functions in Cop-on are defined with the context as the first parameter, followed by other arguments. The context is used to inject the environment into the function.
+
+Copy
+function processData(context, data) {
+    // Function implementation
+}
+Type Inference
+Cop-on uses extensive type inference to ensure that the context contains all the typed dependencies the functions require. Each type can only appear once in a context, allowing lower-cased type names to uniquely dereference the context's state variables.
+
+Immutability
+While additional function arguments can be passed "by value" or "by reference," immutability is encouraged and can be type-checked. Results are returned by a function as one value or a tuple, excluding the context.
+
+Overloading and Dispatch
+Functions can be overloaded by context type. A runtime dispatch mechanism chooses the function to call based on the context type.
+
+Error Handling
+Errors are passed back explicitly in result tuples, not in the context. The context may contain partial results on errors, but updating the context only at safe points in the function is strongly encouraged.
+
+Concurrency
+Concurrent programming is achieved by spawning a new thread on a context and invoking a function. Contexts can be serialized (check-pointed), allowing migration of computation and persistence of state and computation.
+
+Asynchronous Programming
+In languages like JavaScript or Python, all context-aware functions must be async and return a Promise, allowing external computation to be overlapped and awaited.
+
+Context Management
+Context Types
+A context can be a single object (class instance), derived objects (subtypes), a module, a namespace, or combinations of these built up by combining module scopes.
+
+Mock Contexts
+Testing makes use of mock versions of the context, invariants on the context, and before-and-after assertions. Runtime safety checks similarly test the context passed using assertions.
+
+Context Policing
+Contexts are policed with assertions and invariants, while functional code can mostly be proof-checked. Updating the context only at safe points in the function is strongly encouraged.
+
+AI Workflows
+AI Integration
+A context can include a DB client, queues for work input and piped output, LLM or other AI models, managing dependencies in the form of context-aware APIs. This allows AI code generation to produce clean code that can be more easily understood by humans or other AI that consume context-aware APIs.
+
+Communication with AI Models
+When communicating with an AI model, the context becomes what is passed into the model, wholly or as a subset of the current context. This allows hand-over and collaboration between AI models or Agent APIs.
+
+Diagramming Computation
+One way to represent this processing style in diagrams is with inputs on the left and results on the right, with the context coming from above and being passed down below for the next level of transformation. This results in a diagonal lattice style diagramming of computation.
+
+Example
+Copy
+context MyContext {
+    dbClient: DBClient,
+    queue: Queue,
+    model: AIModel
+}
+
+async function analyzeData(context, data) {
+    let result = context.model.analyze(data)
+    context.queue.push(result)
+    return result
+}
+Conclusion
+Cop-on aims to provide a robust framework for context-oriented programming, making it easier to manage dependencies, state, and side effects, especially in concurrent and AI-driven workflows. By adhering to the principles outlined in this manual, you can write clean, maintainable, and efficient code.
+
+This manual provides a foundational understanding of Cop-on. As you explore and implement the language, feel free to propose changes or improvements to address any inconsistencies or unintended feature interactions. Happy coding!

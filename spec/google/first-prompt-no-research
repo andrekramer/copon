@@ -1,0 +1,333 @@
+Cop-on Programming Manual - Context Oriented Programming
+Welcome to Cop-on, a context-oriented programming language designed for clarity, safety, and seamless integration with modern workflows, especially in AI and concurrent systems.
+
+Cop-on embraces a paradigm where context is paramount. Every function in Cop-on explicitly receives a context as its first argument, making dependencies and state management transparent and controllable. This manual will guide you through the core concepts, syntax, and best practices of programming in Cop-on.
+
+1. The Context: The Heart of Cop-on
+In Cop-on, the context is not just an object; it's the environment in which your code operates. It's a typed collection of dependencies and mutable state that functions explicitly interact with. Think of it as a carefully curated backpack containing everything your function needs for its journey.
+
+Key Characteristics of a Cop-on Context:
+
+Explicit First Argument: Every function in Cop-on takes a context as its first argument. This is mandatory and central to the paradigm.
+
+Typed Collection: Contexts are strictly typed. They define the structure of the environment and the types of dependencies and state they hold.
+
+Dependency Injection: The context acts as a container for all dependencies. Functions access these dependencies directly from the context, making dependency management explicit and testable.
+
+Mutable State Container: All mutable state that a function interacts with resides within the context. Side effects are modelled as modifications to the context.
+
+Unique Type Names: Within a single context type, each type can appear only once. This allows for concise and unambiguous access to context members using lower-cased type names derived from the type.
+
+Compositional: Contexts can be built up by combining modules, namespaces, or sub-contexts, allowing for modular and scalable application design.
+
+Checkpointable and Serializable: Contexts can be serialized and deserialized, enabling checkpointing, persistence, and migration of computations.
+
+Assertion & Invariant Driven: Contexts are policed using assertions and invariants to ensure runtime safety and maintain expected states.
+
+Example Context Definition:
+
+context type AppContext {
+    db: DatabaseClient;
+    queue: MessageQueue;
+    config: Configuration;
+    userSession: SessionData?; // Optional session data
+    counter: int = 0; // Mutable state with default value
+}
+Use code with caution.
+Cop-on
+This defines a context type AppContext containing a DatabaseClient, a MessageQueue, a Configuration, an optional SessionData, and a mutable integer counter initialized to 0.
+
+2. Functions in Cop-on: Context Aware Transformations
+Functions in Cop-on are designed to be context-aware transformations. They take a context, perform operations using the resources and state within it, and potentially modify the context or return results.
+
+Function Signature:
+
+fn functionName(ctx: ContextType, arg1: Type1, arg2: Type2, ...) -> ResultType {
+    // Function body accessing context and arguments
+}
+Use code with caution.
+Cop-on
+fn keyword: Declares a function.
+
+functionName: The name of the function.
+
+(ctx: ContextType, ...): The parameter list.
+
+ctx: ContextType: The first parameter must be the context, specifying its type. ContextType should be a defined context type (e.g., AppContext).
+
+arg1: Type1, arg2: Type2, ...: Optional additional arguments, passed by value by default. We can specify "by reference" using ref arg3: Type3.
+
+-> ResultType: Specifies the return type. This can be a single type or a tuple for multiple return values (excluding the context). If no value is returned, use -> void.
+
+Accessing Context Members:
+
+Within a function, you access context members using their lower-cased type names.
+
+fn fetchUser(ctx: AppContext, userId: int) -> (User?, Error?) {
+    assert pre: ctx.db.isConnected(); // Pre-condition assertion on context
+
+    let user = ctx.db.getUserById(userId); // Accessing db dependency from context
+
+    if (user == null) {
+        return (null, new Error("User not found"));
+    }
+
+    ctx.counter = ctx.counter + 1; // Modifying mutable state in context
+
+    assert post: ctx.counter > 0; // Post-condition assertion on context
+    return (user, null);
+}
+Use code with caution.
+Cop-on
+In this example, ctx.db accesses the DatabaseClient dependency, and ctx.counter accesses the mutable counter state. Type inference ensures db and counter are correctly resolved within the AppContext.
+
+Immutability and By-Reference Arguments:
+
+Cop-on encourages immutability. Arguments are passed "by value" by default. To pass an argument "by reference" (allowing modification within the function that reflects outside), use the ref keyword.
+
+fn modifyValue(ctx: AppContext, ref value: int) -> void {
+    value = value * 2; // Modifying the value passed by reference
+}
+
+let x = 5;
+modifyValue(appContext, ref x); // x will be 10 after this call
+Use code with caution.
+Cop-on
+However, modifying by-reference arguments should be used sparingly. Favor modifying state within the context for side effects.
+
+Return Values as Tuples:
+
+Functions return results as single values or tuples. Tuples are particularly useful for returning both a successful result and an error indicator.
+
+fn processData(ctx: AppContext, data: Data) -> (ProcessedData?, Error?) {
+    // ... processing logic ...
+    if (processingFailed) {
+        return (null, new ProcessingError("Data processing failed"));
+    } else {
+        return (processedData, null);
+    }
+}
+Use code with caution.
+Cop-on
+3. Context Overloading and Runtime Dispatch
+Cop-on supports function overloading based on the context type. This allows you to define different implementations of a function that are dispatched at runtime based on the type of context provided.
+
+// Overload for AppContext
+fn handleRequest(ctx: AppContext, request: Request) -> Response {
+    // Handle request using AppContext resources
+    ctx.queue.enqueue(request); // Using the queue from AppContext
+    return processRequestWithDB(ctx, request); // Calling another context-aware function
+}
+
+// Overload for MockAppContext (for testing - see testing section)
+fn handleRequest(ctx: MockAppContext, request: Request) -> Response {
+    // Handle request using MockAppContext resources (e.g., in-memory DB)
+    log("Handling request in mock context: ", request);
+    return mockResponseFor(request);
+}
+Use code with caution.
+Cop-on
+When handleRequest is called, Cop-on will dynamically choose the correct implementation based on the type of the ctx argument passed. This is powerful for polymorphism and adapting function behavior to different environments (e.g., production vs. testing).
+
+4. State Management and Side Effects
+All mutable state in Cop-on is explicitly managed within the context. Side effects are modelled as modifications to the context. This makes state transitions explicit and easier to track.
+
+Encouraged Practices:
+
+Update Context at Safe Points: Functions should strive to update the context only at well-defined and safe points in their execution. This helps with error recovery and checkpointing.
+
+Minimize Context Mutation: While state is mutable, strive to minimize unnecessary context modifications. Favor functional transformations where possible.
+
+Context as a Transaction Scope (Conceptually): Think of a function's execution within a context as a conceptual transaction. If an error occurs, the context might be in a partial state, but ideally, recovery mechanisms should be in place, or updates should be designed to be atomic or easily rolled back.
+
+Discouraged Practices:
+
+Hidden Side Effects: Avoid creating side effects outside of context modifications.
+
+Uncontrolled Context Mutation: Random or unpredictable context updates can lead to hard-to-debug issues.
+
+5. Concurrency and Checkpointing
+Cop-on is designed to facilitate concurrency and checkpointing through its context-centric approach.
+
+Concurrency with spawn:
+
+To execute a function concurrently, use the spawn keyword:
+
+fn processBatch(ctx: AppContext, batch: List<Data>) -> void {
+    for (data in batch) {
+        spawn processDataItem(ctx, data); // Spawn concurrent execution of processDataItem
+    }
+    // ... continue with other tasks ...
+}
+
+async fn processDataItem(ctx: AppContext, item: Data) -> ProcessedItem { // Mark as async for potential external calls
+    // ... process individual data item (potentially asynchronous operations) ...
+    await ctx.queue.sendResult(processedItem); // Await asynchronous operation if needed
+    return processedItem;
+}
+Use code with caution.
+Cop-on
+spawn functionCall(ctx, ...): Initiates concurrent execution of functionCall with the provided context and arguments in a new thread or lightweight concurrency unit.
+
+async fn: Functions that perform asynchronous operations (e.g., I/O, network calls) should be declared as async.
+
+await expression: Pauses execution within an async function until the expression (typically a Promise or asynchronous operation) completes.
+
+Checkpointing and Serialization:
+
+Contexts can be serialized and deserialized, allowing for checkpointing, persistence, and migration of computations.
+
+// Serialization
+let serializedContext = serializeContext(appContext); // Function to serialize context to a byte stream
+
+// Deserialization
+let restoredContext = deserializeContext(serializedContext, AppContext); // Function to deserialize context from byte stream
+Use code with caution.
+Cop-on
+The serializeContext and deserializeContext functions (language or library provided) handle the serialization and deserialization of the context object and its contents. This enables:
+
+Checkpointing: Save the state of a long-running computation by serializing the context at intervals. If failures occur, restore from the last checkpointed context.
+
+Persistence: Store the context to disk or a database for later retrieval and continuation of computation.
+
+Migration: Move computations between machines by serializing the context on one machine and deserializing it on another.
+
+Asynchronous Operations (JavaScript/Python Interoperability):
+
+For languages like JavaScript or Python, all context-aware functions that might interact with external resources or perform asynchronous operations must be declared as async and return a Promise (or equivalent asynchronous construct). This allows for non-blocking execution and efficient handling of I/O and network operations.
+
+// (JavaScript/Python example concept)
+async fn fetchUserData(ctx: WebContext, userId: int) -> Promise<UserData> {
+    let responsePromise = await ctx.httpClient.get(`/users/${userId}`); // Asynchronous HTTP request
+    let userData = await responsePromise.json();
+    return userData;
+}
+Use code with caution.
+Cop-on
+6. Testing and Safety
+Cop-on's context-oriented nature makes testing and runtime safety significantly easier to manage.
+
+Testing with Mock Contexts:
+
+Create mock versions of contexts for testing functions in isolation.
+
+context type MockAppContext {
+    mockDb: MockDatabaseClient;
+    mockQueue: MockMessageQueue;
+    mockConfig: MockConfiguration;
+    // ... other mock dependencies ...
+}
+
+// Test function using MockAppContext
+test "fetchUser_validUser" with MockAppContext {
+    let mockCtx = new MockAppContext();
+    mockCtx.mockDb.setupGetUserById(123, new User("Test User")); // Set up mock behavior
+
+    let (user, error) = fetchUser(mockCtx, 123);
+
+    assert equals: user.name, "Test User";
+    assert isNull: error;
+    assert equals: mockCtx.mockDb.getUserByIdCallCount, 1; // Verify mock interactions
+}
+Use code with caution.
+Cop-on
+context type MockAppContext { ... }: Define a mock context type with mock dependencies.
+
+test "testName" with ContextType { ... }: Defines a test block that will be executed with an instance of ContextType.
+
+mockCtx.mockDb.setup...(...): Set up specific behaviors for mock dependencies to control test scenarios.
+
+assert ... : ...: Assertions to check expected outcomes.
+
+Context Invariants and Assertions:
+
+invariant: condition; (in context definition): Define invariants within the context definition. These invariants are checked after any context modification or function execution that uses the context. If an invariant is violated, a runtime error is raised.
+
+assert pre: condition; (at function start): Pre-condition assertions that must be true when the function is entered.
+
+assert post: condition; (at function end): Post-condition assertions that must be true when the function is exited.
+
+assert: condition; (within function body): General assertions to check conditions at any point in the function.
+
+Assertions and invariants help ensure runtime safety and catch unexpected state transitions or dependency issues early in development.
+
+7. AI Workflow Integration
+Cop-on is particularly well-suited for AI workflows due to its clear separation of environment (context), inputs, and outputs.
+
+Context as Environment Specification for AI Models:
+
+When interacting with AI models (LLMs, Agent APIs, etc.), the Cop-on context becomes a natural way to represent and pass the environment and dependencies to the model.
+
+Explicitly Define AI Model Dependencies in Context: Include AI models, API clients, data sources, and other relevant resources within the context.
+
+Pass Context Subsets to AI Models: You can selectively pass subsets of the current context to AI models, providing them with only the necessary information and resources.
+
+Context-Aware AI Code Generation: AI code generation tools can be designed to generate Cop-on functions that are context-aware, making the generated code more understandable, testable, and maintainable.
+
+Example AI Interaction (Conceptual):
+
+context type AIContext {
+    llm: LargeLanguageModelAPI;
+    knowledgeBase: KnowledgeGraphDB;
+    userPreferences: UserPreferences;
+}
+
+async fn generateResponse(ctx: AIContext, userQuery: String) -> String {
+    let enrichedQuery = await ctx.knowledgeBase.enrichQuery(userQuery); // Use knowledge base from context
+    let prompt = buildPrompt(enrichedQuery, ctx.userPreferences); // Use user preferences from context
+    let aiResponse = await ctx.llm.generateText(prompt); // Use LLM from context
+    return aiResponse;
+}
+Use code with caution.
+Cop-on
+In this example, the AIContext clearly defines the AI-related dependencies. The generateResponse function uses these dependencies from the context to interact with the LLM and knowledge base, resulting in a clean and understandable AI workflow.
+
+8. Diagramming Computation (Diagonal Lattice)
+Cop-on's context-centric nature lends itself to a visual representation using a diagonal lattice diagram.
+
+Context (AppContext)
+         ↓
+Input → Function1 → Output
+         ↓
+     Context (Modified AppContext)
+         ↓
+Input → Function2 → Output
+         ↓
+     Context (Further Modified AppContext)
+         ↓
+     ... and so on ...
+Use code with caution.
+Context Flow: The context flows vertically downwards, representing the evolving environment and state.
+
+Function Transformations: Functions are represented horizontally, transforming inputs to outputs within the context.
+
+Diagonal Lattice: The overall structure forms a diagonal lattice, visually emphasizing the context as the central thread connecting different stages of computation.
+
+This diagramming style helps visualize the flow of data and context through a Cop-on application, highlighting the context's role in managing state and dependencies across different function calls.
+
+9. Advanced Topics (Brief Overview)
+Context Composition and Inheritance: Cop-on allows for composing contexts using modules, namespaces, and context inheritance (sub-context types). This enables building complex and modular contexts.
+
+Context Scoping and Lifecycles: Detailed rules for context scoping and lifecycle management will be defined to ensure proper resource management and prevent unintended state sharing.
+
+Error Handling Strategies: More advanced error handling patterns beyond simple tuple returns will be explored, such as context-aware exception handling or dedicated error context sections.
+
+Performance Considerations: Strategies for optimizing context passing and access in performance-critical applications will be investigated.
+
+10. Conclusion
+Cop-on offers a new perspective on programming by placing context at the forefront. This context-oriented approach promotes:
+
+Clarity and Readability: Explicit context makes dependencies and state management transparent.
+
+Testability and Maintainability: Mock contexts and clear dependency injection simplify testing and code refactoring.
+
+Safety and Reliability: Assertions and invariants enhance runtime safety and help prevent unexpected behavior.
+
+Concurrency and Checkpointing: Context serialization and spawn keyword facilitate concurrent programming and fault tolerance.
+
+AI Workflow Integration: Contexts provide a natural way to represent environments for AI models and code generation.
+
+Cop-on is designed to be a pragmatic and powerful language for building robust, scalable, and understandable applications in the modern era, especially for AI-driven and concurrent systems. We believe that by embracing context as a first-class citizen, Cop-on empowers developers to write cleaner, safer, and more maintainable code.
+
+29.0s
+
